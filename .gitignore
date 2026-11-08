@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+.runtime/
+.env
+.env.*
+*.gguf
+*.safetensors
+*.bin
+logs/
+.codex/
+.mcp.json
+atlas-config.json

@@ -1,0 +1,32 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.11', '3.14']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install .
+      - run: python -m unittest discover -s tests -p "test_*.py" -v
+      - run: node --check viewer/static/app.js
+      - run: node --check viewer/static/guide.js
+      - run: node --check viewer/static/topology.js
+      - run: node tests/test_atlas_orbit.cjs
+      - run: node tests/test_atlas_wheel.cjs
+      - run: gguf-atlas --help
+      - run: gguf-atlas-mcp --help
+      - run: python examples/create_demo.py --output demo/atlas-demo.gguf

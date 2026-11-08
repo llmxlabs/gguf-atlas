@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gguf-atlas"
+version = "0.3.0"
+description = "A local visual workbench for GGUF model structure, sampled weights and agent-assisted exploration"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "LLMX Labs"}]
+keywords = ["gguf", "llm", "visualization", "mcp", "model-inspection"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/llmxlabs/gguf-atlas"
+Issues = "https://github.com/llmxlabs/gguf-atlas/issues"
+
+[project.scripts]
+gguf-atlas = "viewer.server:main"
+gguf-atlas-mcp = "viewer.mcp_server:main"
+
+[tool.setuptools]
+packages = ["viewer"]
+
+[tool.setuptools.package-data]
+viewer = ["static/*.html", "static/*.css", "static/*.js"]

@@ -1,0 +1,38 @@
+// Exercise the actual UI wheel handler with pixel, line and page wheel input.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const source = fs.readFileSync(path.join(__dirname, '../viewer/static/guide.js'), 'utf8');
+const handler = source.match(/^function floorWheel\(event\)\{[\s\S]*?^\}/m)?.[0];
+assert.ok(handler, 'Wheel navigation handler must exist');
+let now = 1000;
+const moves = [];
+const guide = {view: 'landscape', layerLayout: 'floors', wheelAmount: 0, wheelAt: 0, wheelStepAt: 0};
+const sandbox = {guide, performance: {now: () => now}, moveFloor: direction => moves.push(direction), Math};
+vm.createContext(sandbox);
+vm.runInContext(handler, sandbox);
+const wheel = (deltaY, deltaMode = 0, ctrlKey = false) => sandbox.floorWheel({deltaY, deltaMode, ctrlKey, currentTarget: {clientHeight: 600}});
+assert.equal(wheel(-120), true);
+assert.deepEqual(moves, [1]);
+now += 10;
+wheel(-120);
+assert.deepEqual(moves, [1], 'A rapid burst must not skip floors');
+now += 300;
+wheel(3, 1);
+assert.deepEqual(moves, [1, -1], 'Line-mode down should go to previous floor');
+now += 300;
+wheel(-1, 2);
+assert.deepEqual(moves, [1, -1, 1], 'Page-mode up should go to next floor');
+now += 300;
+for (let i = 0; i < 4; i++) { wheel(-10); now += 10; }
+assert.deepEqual(moves, [1, -1, 1, 1], 'Small trackpad events accumulate');
+assert.equal(wheel(-120, 0, true), false, 'Ctrl+wheel must fall through to zoom');
+guide.view = 'layers'; guide.layerLayout = 'overview';
+assert.equal(wheel(-120), false, 'Overview retains zoom');
+guide.layerLayout = 'floors'; now += 300;
+assert.equal(wheel(120), true);
+assert.equal(moves.at(-1), -1);
+guide.view = 'heatmap';
+assert.equal(wheel(-120), false);
+console.log('PASS: wheel direction, pixel/line/page deltas, trackpad accumulation, burst throttle, Ctrl zoom, overview fallback');
