@@ -83,7 +83,8 @@ class WorkbenchHTTPTests(unittest.TestCase):
         self.assertTrue(result['unchanged_outside_edit'])
         self.assertEqual(self.source.read_bytes(), self.original)
         output = Path(result['output']['path'])
-        self.assertTrue(output.is_relative_to(self.root / 'candidates'))
+        # Temp paths may use a symlink (macOS /var) or a short-name alias on Windows.
+        self.assertTrue(output.resolve().is_relative_to((self.root / 'candidates').resolve()))
         self.assertEqual(sample_tensor(output, 'blk.0.attn_q.weight')['values'], [-3, -1, -.5, 0, 0, 1, 2, 3])
         self.assertTrue(Path(result['manifest_path']).is_file())
         self.assertEqual(len(self.server.app.catalog()['models']), 2)

@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from viewer.assistant import AssistantError, AssistantService
-from viewer.cli_assistant import CLIAssistant, build_command, parse_answer, run_bounded
+from viewer.cli_assistant import CLIAssistant, _kill_owned_process, build_command, parse_answer, run_bounded
 from viewer.configuration import DEFAULT_SETTINGS, detect_cli
 from test_viewer_assistant import FakeApp
 
@@ -68,6 +68,31 @@ class CLIAdapterTests(unittest.TestCase):
             run_bounded([sys.executable, "-c", "print('x'*10000)"], output_limit=100)
         with self.assertRaisesRegex(AssistantError, "timed out"):
             run_bounded([sys.executable, "-c", "import time; time.sleep(5)"], timeout=.05)
+
+    def test_failure_terminates_owned_tree_exactly_once(self):
+        # The real cleanup remains active; duplicate SIGKILL is not benign on
+        # macOS when the first signal leaves only zombie group members.
+        with patch("viewer.cli_assistant._kill_owned_process", wraps=_kill_owned_process) as cleanup:
+            with self.assertRaisesRegex(AssistantError, "output"):
+                run_bounded([sys.executable, "-c", "print('x'*10000)"], output_limit=100)
+        self.assertEqual(cleanup.call_count, 1)
+
+    def test_posix_cleanup_reaps_leader_but_still_signals_descendants(self):
+        calls = []
+        process = Mock(pid=43210)
+        process.poll.side_effect = lambda: calls.append("reap") or 0
+        with patch("viewer.cli_assistant.os.name", "posix"), patch("viewer.cli_assistant.signal.SIGKILL", 9, create=True), patch("viewer.cli_assistant.os.killpg", create=True) as killpg:
+            killpg.side_effect = lambda *args: calls.append("signal")
+            _kill_owned_process(process)
+        self.assertEqual(calls, ["reap", "signal"])
+        self.assertEqual(killpg.call_args.args[0], process.pid)
+
+    def test_posix_cleanup_does_not_hide_permission_failures(self):
+        process = Mock(pid=43210)
+        with patch("viewer.cli_assistant.os.name", "posix"), patch("viewer.cli_assistant.signal.SIGKILL", 9, create=True), patch("viewer.cli_assistant.os.killpg", create=True, side_effect=PermissionError("denied")):
+            with self.assertRaises(PermissionError):
+                _kill_owned_process(process)
+        process.poll.assert_called_once()
 
     def test_exited_leader_inherited_pipe_still_obeys_deadline_and_kills_child(self):
         with tempfile.TemporaryDirectory() as folder:

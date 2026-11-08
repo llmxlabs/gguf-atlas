@@ -28,6 +28,7 @@ gguf-atlas-mcp = "viewer.mcp_server:main"
 
 [tool.setuptools]
 packages = ["viewer"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 
 [tool.setuptools.package-data]
 viewer = ["static/*.html", "static/*.css", "static/*.js"]

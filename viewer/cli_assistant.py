@@ -94,6 +94,10 @@ def _kill_owned_process(process, job=None):
     if job is not None:
         job.close()  # Kills descendants even if the group leader already exited.
     elif os.name != "nt":
+        # Reap an already-exited leader before signalling its group. Darwin's
+        # killpg skips zombies and can report EPERM for a zombie-only group.
+        # We still signal after leader exit: live descendants may hold pipes.
+        process.poll()
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
@@ -180,10 +184,10 @@ def run_bounded(command, prompt="", timeout=180, cwd=None, output_limit=MAX_OUTP
             if process.poll() is not None and all(event.is_set() for event in completed.values()):
                 break
             time.sleep(0.02)
-        if failure:
-            _kill_owned_process(process, job)
     finally:
         # Successful root exit also must not leave a background CLI child behind.
+        # Terminate exactly once: a second signal can encounter zombie-only
+        # descendants on Darwin while the first SIGKILL is being completed.
         _kill_owned_process(process, job)
         process.wait(timeout=5)
         for thread in readers + [writer]:
